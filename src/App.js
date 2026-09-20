@@ -4,12 +4,74 @@ import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// PWA Install prompt
+let deferredPrompt = null;
+
 function App() {
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({ totalOrders: 0, pendingOrders: 0, totalRevenue: 0, todayOrders: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [showInstall, setShowInstall] = useState(false);
+  const [lastOrderCount, setLastOrderCount] = useState(0);
+
+  // PWA Install listener
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      setShowInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setShowInstall(false);
+    deferredPrompt = null;
+  };
+
+  // Request notification permission
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Check for new orders every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_URL}/orders`);
+        const newOrders = res.data;
+
+        if (lastOrderCount > 0 && newOrders.length > lastOrderCount) {
+          const newOrder = newOrders[0];
+          // Show notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🛒 New Order!', {
+              body: `${newOrder.customerName} - ₹${newOrder.total?.toLocaleString()}`,
+              icon: '/Logo.png'
+            });
+          }
+          // Play sound
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+          audio.play().catch(() => {});
+        }
+
+        setOrders(newOrders);
+        setLastOrderCount(newOrders.length);
+      } catch (error) {
+        console.error('Error checking orders:', error);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [lastOrderCount]);
 
   useEffect(() => {
     fetchOrders();
@@ -20,6 +82,7 @@ function App() {
     try {
       const res = await axios.get(`${API_URL}/orders`);
       setOrders(res.data);
+      setLastOrderCount(res.data.length);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -93,6 +156,11 @@ function App() {
           <h1>Kiran Bore Wells - Admin</h1>
         </div>
         <div className="header-right">
+          {showInstall && (
+            <button className="install-btn" onClick={handleInstallClick}>
+              📲 Install App
+            </button>
+          )}
           <span className="date">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
       </header>

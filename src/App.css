@@ -29,9 +29,31 @@ body {
   color: #F1801D;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .header-right .date {
   color: #888;
   font-size: 14px;
+}
+
+.install-btn {
+  background: #F1801D;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.install-btn:hover {
+  background: #d97018;
 }
 
 /* Stats Grid */
